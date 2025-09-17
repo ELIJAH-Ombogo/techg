@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refer and Earn with Payment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+        }
+        h2 {
+            text-align: center;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            color: #155724;
+        }
+        .error {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            color: #721c24;
+        }
+        .otp-section {
+            display: none; /* Initially hidden */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Refer and Earn</h2>
+        <form id="referForm">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+
+            <label for="email">Email:</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="email" id="email" name="email" required style="flex: 1;">
+                <button type="button" id="sendOtpBtn" style="width: auto; padding: 8px 12px;">Send OTP</button>
+            </div>
+
+            <div class="otp-section" id="otpSection">
+                <label for="otp">Enter OTP:</label>
+                <input type="number" id="otp" name="otp" placeholder="Enter 6-digit OTP">
+            </div>
+
+            <label for="password">Create Password:</label>
+            <input type="password" id="password" name="password" required>
+
+            <label for="referralCode">Referral Code (Mandatory):</label>
+            <input type="text" id="referralCode" name="referralCode" required>
+
+            <button type="submit">Register and Pay ₹100</button>
+        </form>
+        <div id="result" class="result"></div>
+        <div id="error" class="error"></div>
+    </div>
+
+    <!-- Razorpay Checkout Script -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+        const commissionLevels = [28, 17, 14, 9, 7, 5, 4, 3, 2, 1];
+        let generatedOtp = null;
+
+        // Function to generate OTP
+        function generateOTP() {
+            return Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+        }
+
+        // Function to "send" OTP (simulated)
+        function sendOTP(email) {
+            generatedOtp = generateOTP();
+            console.log(`OTP for ${email}: ${generatedOtp}`); // Log OTP to console
+            localStorage.setItem('otp', generatedOtp.toString());
+            document.getElementById('otpSection').style.display = 'block';
+            document.getElementById('sendOtpBtn').disabled = true;
+            document.getElementById('error').innerHTML = "OTP sent to your email!";
+        }
+
+        // Function to validate OTP
+        function validateOTP(enteredOtp) {
+            const storedOtp = localStorage.getItem('otp');
+            return storedOtp === enteredOtp;
+        }
+
+        // Send OTP button click handler
+        document.getElementById('sendOtpBtn').addEventListener('click', function() {
+            const email = document.getElementById('email').value;
+            if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                sendOTP(email);
+            } else {
+                document.getElementById('error').innerHTML = "Please enter a valid email.";
+            }
+        });
+
+        // Function to initiate Razorpay payment
+        function initiatePayment(amount, currency, name, email) {
+            const options = {
+                key: 'rzp_test_XXXXXXXXXXXXX', // Replace with your Razorpay Test Key ID
+                amount: amount * 100, // Amount in paise (e.g., ₹100 = 10000 paise)
+                currency: currency,
+                name: 'Your Company Name',
+                description: 'Payment for Refer and Earn',
+                image: 'https://your-website.com/logo.png', // Your logo
+                handler: function (response) {
+                    // Payment success callback
+                    console.log('Payment successful:', response);
+                    alert('Payment successful! Payment ID: ' + response.razorpay_payment_id);
+                    document.getElementById('result').innerHTML = `
+                        Thank you, ${name}! Registration and payment successful.<br>
+                        Payment ID: <strong>${response.razorpay_payment_id}</strong>
+                    `;
+                },
+                prefill: {
+                    name: name,
+                    email: email,
+                },
+                theme: {
+                    color: '#28a745', // Customize the theme color
+                },
+            };
+
+            const rzp = new Razorpay(options);
+            rzp.open();
+        }
+
+        // Form submission handler
+        document.getElementById('referForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const referralCode = document.getElementById('referralCode').value;
+            const enteredOtp = document.getElementById('otp').value;
+
+            // Validate OTP
+            if (!validateOTP(enteredOtp)) {
+                document.getElementById('error').innerHTML = "Invalid OTP!";
+                return;
+            }
+
+            // Validate referral code
+            if (!isValidReferralCode(referralCode)) {
+                document.getElementById('error').innerHTML = "Invalid referral code. It must be a valid 6-digit UID of an existing user.";
+                return;
+            }
+
+            // Initiate Razorpay payment
+            initiatePayment(100, 'INR', name, email);
+        });
+
+        // Helper functions
+        function isValidReferralCode(code) {
+            // Simulated referral code validation
+            return /^\d{6}$/.test(code);
+        }
+    </script>
+</body>
+</html>
